@@ -1,0 +1,12 @@
+Package: cpmgee
+Type: Package
+Title: CPMs for Clustered Continuous Response Variables Based on GEE methods
+Version: 1.0
+Date: 2022-02-08
+Author: Yuqi Tian
+Maintainer: Yuqi Tian <yuqi.tian@vanderbilt.edu>
+Description: One paragraph description of what the package does as one or more full sentences.
+License: GPL (>= 2)
+Depends: R (>= 3.4.0)
+Imports: Rcpp (>= 1.0.4), methods, Matrix, rms, diagonals
+LinkingTo: Rcpp, RcppArmadillo
