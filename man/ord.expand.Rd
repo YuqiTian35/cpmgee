@@ -4,16 +4,12 @@
 \alias{ord.expand}
 \title{Expand data for model fitting}
 \usage{
-ord.expand(space, formula, times, poly, data, subjects, categories)
+ord.expand(formula, times, data, subjects, categories)
 }
 \arguments{
-\item{space}{a vector indicating the category spacing when fitting the polynomial model}
-
 \item{formula}{an R formula}
 
 \item{times}{a vector of times which occur within subject clusters}
-
-\item{poly}{a numeric variable indicating the order of the polynomial contrasts used for the cut-point model}
 
 \item{data}{a data frame including response data and covariates}
 

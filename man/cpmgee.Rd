@@ -12,10 +12,6 @@ cpmgee(
   categories,
   corr.mod = "independence",
   alpha = 0.5,
-  po.test = FALSE,
-  fixed = FALSE,
-  poly = NULL,
-  space = NULL,
   fit.opt = rep(NA, 5)
 )
 }
@@ -34,17 +30,6 @@ cpmgee(
 ("independence", "exchangeable", and "ar1")}
 
 \item{alpha}{an initial value for the association parameter}
-
-\item{po.test}{a logical variable; if true a score test for proportional odds is reported}
-
-\item{fixed}{a logical variable; if true the association parameter is fixed at the
-initial value during model fitting}
-
-\item{poly}{a numeric variable indicating the order of the polynomial contrasts used for
-the cut-point model}
-
-\item{space}{a vector indicating the category spacing when fitting the polynomial model; c
-an generally be set to 1:`categories`}
 
 \item{fit.opt}{a vector of options to control the behavior of the fitting algorithm}
 }

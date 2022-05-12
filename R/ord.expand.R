@@ -1,25 +1,23 @@
-#' Expand data for model fitting 
-#' 
+#' Expand data for model fitting
+#'
 #' This function expand each response value into indicator for model fitting
-#' 
-#' @param space a vector indicating the category spacing when fitting the polynomial model
+#'
 #' @param formula an R formula
 #' @param times a vector of times which occur within subject clusters
-#' @param poly a numeric variable indicating the order of the polynomial contrasts used for the cut-point model
 #' @param data a data frame including response data and covariates
 #' @param subjects a character string specifying the subject variable
 #' @param categories a numeric variable indicating the number of ordinal levels
 #' @return an expanded data frame
-ord.expand <- function(space, formula, times, poly, data, subjects, categories){
+ord.expand <- function(formula, times, data, subjects, categories){
 
   # remove missing data
-  reorder <- match(c(sapply(attr(terms(formula), "variables"), deparse, 
+  reorder <- match(c(sapply(attr(terms(formula), "variables"), deparse,
              width.cutoff = 500)[-1L], subjects), names(data))
   if (any(is.na(reorder))){stop("data: model frame and formula mismatch in model.matrix()")}
   data <- data[, sort(reorder)]
   split.data <- split(data, data[subjects])
   new.subjects  <- length(unique(data[,subjects]))
- 
+
   # model formula
   orig.formula <- as.formula(formula)
   form.vars <- attr(terms.formula(as.formula(formula)), "variables")
@@ -29,15 +27,9 @@ ord.expand <- function(space, formula, times, poly, data, subjects, categories){
   resp.var <- resp.var + 1
   resp.label <- as.character(form.vars[[resp.var]])
   if (is.element("cuts", term.labels)){stop("data: term name cuts is not permitted")}
-  if(is.null(poly) == TRUE){
-    formula <- as.formula(paste(resp.label, "~",
-       paste(c("cuts - 1", paste(term.labels, collapse = "+")), collapse = "+")))
-   } else {
-    pol_term <- paste("poly(pcuts, ", poly, ")", sep = "")
-    formula <- as.formula(paste(resp.label, "~",
-        paste(c(pol_term, paste(term.labels, collapse = "+")), collapse = "+")))
-   }
- 
+  formula <- as.formula(paste(resp.label, "~",
+                              paste(c("cuts - 1", paste(term.labels, collapse = "+")), collapse = "+")))
+
   # new data frame
   scores <- resp.label
   namvars <- names(data)
@@ -61,18 +53,10 @@ ord.expand <- function(space, formula, times, poly, data, subjects, categories){
    if (namvars[j] == subjects) {names(ndata)[j] <- "subjects"}
   }
   ndata <- data.frame(cuts = cuts,ndata)
-  if(is.null(poly) == TRUE){
   levels(ndata$cuts) <- paste(as.character(1:categories)[-categories],
                               as.character(1:categories)[-1], sep = "|")
-  } else {
-  if(is.null(space) == FALSE){
-   pcuts <- rep(space[2:(length(space))], times = dim(data)[1])
-  } else {
-   pcuts <- as.numeric(ndata$cuts)
-  } 
-  ndata <- cbind(ndata, pcuts)
-  }
- 
+
+
   # output
   list(data = ndata, formula = formula)
 }

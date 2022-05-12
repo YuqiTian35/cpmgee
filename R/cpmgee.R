@@ -11,13 +11,6 @@
 #' @param corr.mod a character string specifying the working correlation structure
 #'  ("independence", "exchangeable", and "ar1")
 #' @param alpha an initial value for the association parameter
-#' @param po.test a logical variable; if true a score test for proportional odds is reported
-#' @param fixed a logical variable; if true the association parameter is fixed at the
-#' initial value during model fitting
-#' @param poly a numeric variable indicating the order of the polynomial contrasts used for
-#' the cut-point model
-#' @param space a vector indicating the category spacing when fitting the polynomial model; c
-#' an generally be set to 1:`categories`
 #' @param fit.opt a vector of options to control the behavior of the fitting algorithm
 #' @return A list containing the following components:
 #' @return \item{max.id}{number of clusters}
@@ -79,19 +72,19 @@
 #'
 #' # new data
 #' new_data <- data.frame(x = c(0,1), t = 0.2)
-#' 
+#'
 #' # conditional quantities for independence working correlation structure
 #' mean_ind <- mean_cpmgee(mod_cpmgee_ind, data$y, new_data)
 #' median_ind <- quantile_cpmgee(mod_cpmgee_ind, data$y, new_data, 0.5)
 #' cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y, new_data, 5)
-#' 
+#'
 #' # conditional quantities for exchangeable working correlation structure
 #' mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y, new_data)
 #' median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
 #' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
 
 cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "independence",
-                              alpha = 0.5, po.test = FALSE, fixed = FALSE, poly = NULL, space = NULL, fit.opt = rep(NA, 5)){
+                              alpha = 0.5, fit.opt = rep(NA, 5)){
   # start
   call <- match.call()
 
@@ -104,8 +97,6 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   initial <- 'orm'
   if(times[1] != 1){stop("times: times should be vector with first value set to 1")}
   alpha <- as.double(alpha)
-  po.test <- as.logical(po.test)
-  fixed <- as.logical(fixed)
   set.fit.opt <- c(cmaxit = 10, omaxit = 5, ctol = 0.001, otol = 0.00001, h = 0.01)
   set.fit.opt[which(is.na(fit.opt) == FALSE)] <- fit.opt[which(is.na(fit.opt) == FALSE)]
   if(set.fit.opt[1] < 4){set.fit.opt[1] <- 4}
@@ -116,10 +107,7 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   isubject <- as.integer(match(subjects, names(as.data.frame(data)), -1))
   if (isubject < 1){stop("subjects: unknown subject name")}
   orig.formula <- as.formula(formula)
-  if(is.null(poly) == FALSE){po.test <- FALSE; poly <- as.integer(poly)}
   if(sum(diff(times) > 0) != (length(times) - 1)){stop("times: invalid vector of times")}
-  if(is.null(space) != TRUE){if(sum(diff(space) > 0) != categories1){stop("space: invalid vector of spacings")}}
-  if(is.null(space) != TRUE){if(space[1] != 1){stop("space: space should be vector with first value set to 1")}}
 
   # convert id to numeric
   data$subjects.ord <- as.numeric(factor(data[,subjects], levels = unique(data[,subjects])))
@@ -137,7 +125,7 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   formula.ord <- as.formula(paste('y.ord', '~', paste(all.vars(formula)[-1], collapse = ' + ')))
 
   # model matrix
-  exdata <- ord.expand(space = space, formula = formula.ord, times = times, poly = poly,
+  exdata <- ord.expand(formula = formula.ord, times = times,
                        data = data, subjects = 'subjects.ord', categories = categories)
   formula <- exdata$formula
   dat <- list(data = exdata$data)
@@ -145,20 +133,13 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   covariate_names <- colnames(covariate_part)
   intercept_names <- paste0('cuts', exdata$data$cuts[1:categories1])
   # intercept part for one observation
-  if(is.null(poly) == FALSE){
-    i_poly <- poly(exdata$data$pcuts, poly)
-    poly_names <- paste0('poly(pcuts, ', poly, ')', 1:poly)
-    Xmat <- list(design = as(cbind(1, i_poly, covariate_part), 'dgCMatrix'))
-  }else{
-    i_intercept <- Matrix::Diagonal(categories1)
-    intercept_names <- paste0('cuts', exdata$data$cuts[1:categories1])
-    # number of replicates
-    v <- rep(1, nrow(data))
-    intercept_part <- kronecker(v, i_intercept)
-    Xmat <- list(design = cbind(intercept_part, covariate_part))
-  }
+  i_intercept <- Matrix::Diagonal(categories1)
+  intercept_names <- paste0('cuts', exdata$data$cuts[1:categories1])
+  # number of replicates
+  v <- rep(1, nrow(data))
+  intercept_part <- kronecker(v, i_intercept)
+  Xmat <- list(design = cbind(intercept_part, covariate_part))
   var.names <- c(intercept_names, covariate_names)
-
 
   mod <- rms::orm(formula = formula.ord, data = data, x = TRUE, y = TRUE) # default logit link
   inv.logit <- function(x) 1 / (1 + exp(-x))
@@ -213,30 +194,22 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                           ctimes = times, categories = categories,
                           omaxit = as.integer(set.fit.opt[2]), otol = as.double(set.fit.opt[4]))
   coeffs <- mod.ordgee$coefficients
-  if(is.null(poly) == FALSE){
-    poly1 <- poly + 1
-    var.names[1:poly1] <- c("Intercept", paste("poly(cuts, ",categories - 1, ")", 1:poly, sep = ""))
-    polydesign <- as(Xmat$design[1:(categories1), 1:(poly1)], "CsparseMatrix")
-    polycuts <- as.numeric(polydesign %*% coeffs[1:(poly1)])
-    coeffs <- c(polycuts, mod.ordgee$coefficients[(poly1+1):length(mod.ordgee$coefficients)])
-    xsmat <- smat(coeff=polycuts)
-  } else {
-    polycuts <- NA
-    # force increasing for intercepts
-    decreasing_ind <- which(diff(coeffs[1:categories1]) <= 0)
-    if(length(decreasing_ind) > 0){
-      for(ind in decreasing_ind){
-        # if the differences are extremely small -> use the mid value
-        if(coeffs[ind+1] - coeffs[ind-1] < 1e-5){
-          coeffs[ind] <- (coeffs[ind+1] + coeffs[ind-1]) / 2
-        }else{
-          coeffs[ind] <- coeffs[ind-1] + 1e-5
-        }
+
+  polycuts <- NA
+  # force increasing for intercepts
+  decreasing_ind <- which(diff(coeffs[1:categories1]) <= 0)
+  if(length(decreasing_ind) > 0){
+    for(ind in decreasing_ind){
+      # if the differences are extremely small -> use the mid value
+      if(coeffs[ind+1] - coeffs[ind-1] < 1e-5){
+        coeffs[ind] <- (coeffs[ind+1] + coeffs[ind-1]) / 2
+      }else{
+        coeffs[ind] <- coeffs[ind-1] + 1e-5
       }
-      ## putting the cofficients back to model (recalculate in fitted/linpred etc.)
-      mod.ordgee <- fixmod(mod.ordgee, coeffs, Xmat)
-      coeffs <- mod.ordgee$coefficients
     }
+    ## putting the cofficients back to model (recalculate in fitted/linpred etc.)
+    mod.ordgee <- fixmod(mod.ordgee, coeffs, Xmat)
+    coeffs <- mod.ordgee$coefficients
   }
 
   xsmat <- smat(coeff = mod.ordgee$coefficients[1:categories1])
@@ -247,18 +220,11 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                       alpha = alpha, corrmod = corr.mod, h = set.fit.opt[5])
   inv_hmat <- Matrix::solve(xhgmat$hmat)
   robust.var <- inv_hmat %*% xhgmat$gmat %*% inv_hmat
-  if(is.null(poly) == FALSE){
-    poly_robust.var <- robust.var
-    polycuts.robust_int <- polydesign %*% robust.var[1:(poly1), 1:(poly1)] %*% Matrix::t(polydesign)
-    polycuts.robust_cov <- robust.var[(poly1+1):nrow(robust.var), (poly1+1):nrow(robust.var)]
-    polycuts.robust_intcov <- polydesign %*% robust.var[1:(poly1), (poly1+1):nrow(robust.var)]
-    robust.var <- as.matrix(rbind(cbind(polycuts.robust_int, polycuts.robust_intcov),
-                                  cbind(t(polycuts.robust_intcov), polycuts.robust_cov)))
-  } else{
-    inv_hmat <- Matrix::solve(xhgmat$hmat)
-    robust.var <- inv_hmat %*% xhgmat$gmat %*% inv_hmat
-    polycuts <- poly_robust.var <- NA
-  }
+
+  inv_hmat <- Matrix::solve(xhgmat$hmat)
+  robust.var <- inv_hmat %*% xhgmat$gmat %*% inv_hmat
+  polycuts <- poly_robust.var <- NA
+
   rownames(robust.var) <- colnames(robust.var) <- var.names
   coeffs <- as.numeric(coeffs); names(coeffs) <- var.names
 
@@ -272,7 +238,6 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                      corr.mod = rcorr.mod,
                      times = times,
                      categories = categories,
-                     poly.mod = list(poly = poly, polycuts = list(coeff = polycuts, robust.var = poly_robust.var)),
                      max.id = as.numeric(mod.ordgee$max.id),
                      id = as.numeric(mod.ordgee$id),
                      y = as.numeric(mod.ordgee$y),
@@ -280,7 +245,6 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                      fitted.values = as.numeric(mod.ordgee$fitted.values),
                      coefficients = coeffs,
                      robust.var = as.matrix(robust.var),
-                     fixed = fixed,
                      alpha = as.numeric(alpha),
                      fit.opt = set.fit.opt,
                      grad1 = as.numeric(xupalpha$gvb),
