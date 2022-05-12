@@ -1,5 +1,20 @@
-# hgmat_cov R version 
-# can handle missing data
+#' Calculate H and G matrix
+#' 
+#' See details in Parsons N., et al. "A generalized estimating 
+#' equation method for fitting autocorrelated ordinal score data with an application in 
+#' horticultural research." Journal of the Royal Statistical Society: Series C 
+#' (Applied Statistics) 55.4 (2006): 507-524. This function is used to calculate
+#' the covariance matrix
+#' 
+#' @param mod the fitted model with independence working correlation structure
+#' @param smat the matrix of correlations among elements in $Z_{it}$
+#' @param X the design matrix
+#' @param modtype a character string specifying the model type (CPM or GLM)
+#' @param diffmeth a character string specifying the method used for estimation of alpha
+#' @param alpha the association parameter
+#' @param corrmod the specified working correlation structure
+#' @param h a numeric value of options to control the fitting algorithm
+#' @return A list including H and G
 
 hgmat_cov <- function(mod, smat, X, modtype, diffmeth, alpha, corrmod, h){
   # input

@@ -1,4 +1,14 @@
-# icormat
+#' Obtain the working correlation matrix
+#' 
+#' 
+#' @param mod the fitted model with independence working correlation structure
+#' @param smat the matrix of correlations among elements in $Z_{it}$
+#' @param modtype a character string specifying the model type (CPM or GLM)
+#' @param diffmeth a character string specifying the method used for estimation of alpha
+#' @param alpha the association parameter
+#' @param corrmod the specified working correlation structure
+#' @param h a numeric value of options to control the fitting algorithm
+#' @return the working correlation matrix
 
 icormat <- function(mod, smat, modtype = "gee", diffmeth, alpha, corrmod, h){
   ismat <- smat$ismat

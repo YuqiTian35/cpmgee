@@ -1,4 +1,16 @@
-# upalpha R version
+#' Update the association parameter
+#' 
+#' This function updates alpha, the association parameter
+#' 
+#' @param hgmat a list of H and G matrices (see reference for repolr for more details)
+#' @param alpha a numeric value for current alpha value
+#' @param diffmeth a character string specifying the method used for estimation of alpha
+#' @param h a numeric value of finite differencing
+#' @return A list containing the following components:
+#' @return \item{gvb}{the first derivative of generalized variance at convergence}
+#' @return \item{ggvb}{the second derivative of generalized variance at convergence}
+#' @return \item{alpha}{the updated assocation parameter}
+
 
 upalpha <- function(hgmat, alpha, diffmeth, h){
   if(diffmeth == 'analytic'){

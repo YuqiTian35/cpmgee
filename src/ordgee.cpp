@@ -1,3 +1,14 @@
+//' @name ordgee
+//' @title update beta
+
+//' @param mod a fitted model
+//' @param icormat a list of working correlation matrices
+//' @param X the design matrix
+//' @param ctimes a numeric vector of time points
+//' @param categories a numeric variable indicating the number of ordinal levels
+//' @param omaxit a numeric value of maximum iteration
+//' @param otal a numeric value of tolerance for convergence
+//' @return a list of information of the model including the updated beta
 
 #include <RcppArmadillo.h>
 using namespace Rcpp;
@@ -21,12 +32,6 @@ Rcpp::List ordgee(Rcpp::List mod, Rcpp::List icormat, Rcpp::List X,
   arma::rowvec times = Rcpp::as<arma::rowvec>(ctimes);
   unsigned int ntimes = times.n_elem; // number of times
   arma::rowvec id;
-  //if (modtype == "glm"){
-  //  Rcpp::List datalist = Rcpp::as<List>(mod["data"]);
-  //  id = Rcpp::as<arma::rowvec>(datalist["subjects"]);
-  //} else if (modtype == "gee") {
-  //  id = Rcpp::as<arma::rowvec>(mod["id"]); 
-  //}   
   Rcpp::List datalist = Rcpp::as<List>(mod["data"]);
   id = Rcpp::as<arma::rowvec>(datalist["subjects"]);
   
@@ -35,18 +40,7 @@ Rcpp::List ordgee(Rcpp::List mod, Rcpp::List icormat, Rcpp::List X,
   unsigned int ncoeff = beta.n_elem; // number of beta paramters
   unsigned int nid = ntimes * (categories - 1); // number of times *  number of levels
   unsigned int dim = Xmat.n_rows; 
-  //arma::sp_mat irmat(nid * maxid, nid * maxid);
-  //if (modtype == "glm"){
-  //  irmat = arma::speye<arma::sp_mat>(nid * maxid, nid * maxid);
-  //  } else if (modtype == "gee") {
-  //  irmat = Rcpp::as<arma::sp_mat>(icormat["irmat"]);
-  //}  
   arma::sp_mat irmat(dim, dim);
-  //if (modtype == "glm"){
-  //  irmat = arma::speye<arma::sp_mat>(dim, dim);
-  //} else if (modtype == "gee") {
-  //  irmat = Rcpp::as<arma::sp_mat>(icormat["irmat"]);
-  //}  
   irmat = Rcpp::as<arma::sp_mat>(icormat["irmat"]);
   arma::rowvec varmat = arma::sqrt(fitted % (1 - fitted));
   arma::sp_mat vmat = arma::zeros<arma::sp_mat>(dim, dim); 

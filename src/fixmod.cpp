@@ -1,4 +1,10 @@
+//' @name fixmod
+//' @title model information
 
+//' @param mod a fitted model
+//' @param coeffs a numeric vector of coefficients
+//' @param X the design matrix
+//' @return a list of information of the model
 #include <RcppArmadillo.h>
 using namespace Rcpp;
 // [[Rcpp::depends(RcppArmadillo)]]

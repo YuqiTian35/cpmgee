@@ -1,12 +1,15 @@
 Package: cpmgee
 Type: Package
 Title: CPMs for Clustered Continuous Response Variables Based on GEE methods
-Version: 1.0
-Date: 2022-02-08
-Author: Yuqi Tian
-Maintainer: Yuqi Tian <yuqi.tian@vanderbilt.edu>
-Description: One paragraph description of what the package does as one or more full sentences.
+Version: 1.0.0
+Date: 2022-05-06
+Author: Yuqi Tian [aut, cre]
+Maintainer: Chun Li <cli77199@usc.edu>
+Description: We extend a widely used ordinal regression model, the cumulative probability model (CPM), to fit clustered continuous response variables based on generalized estimating equation (GEE) methods for ordinal responses. With our approaches, estimates of marginal parameters, cumulative distribution functions (CDFs), expectations, and quantiles conditional on covariates can be obtained without pre-transformation of the potentially skewed continuous response data.
 License: GPL (>= 2)
 Depends: R (>= 3.4.0)
-Imports: Rcpp (>= 1.0.4), methods, Matrix, rms, diagonals
-LinkingTo: Rcpp, RcppArmadillo
+Imports: Rcpp (>= 1.0.4), methods, stats, Matrix, rms, diagonals
+LinkingTo: Rcpp, RcppArmadillo, RcppEigen
+RoxygenNote: 7.1.2
+Encoding: UTF-8
+LazyData: true

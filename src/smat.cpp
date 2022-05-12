@@ -1,7 +1,13 @@
+//' @name smat
+//' @title obtain a matrix of correlations among elements in Z_{it}
+
+//' @param coeff a numeric vector of intercept and regression coefficients
+//' @return a matrix and its inverse
+
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 using namespace Rcpp;
-
+// [[Rcpp::export]]
 List smat(Rcpp::NumericVector coeff){
 
     // input data

@@ -1,19 +1,33 @@
+//' @name alphpow
+//' @title constrct matrix of powers of x
+
+//' @param x a numeric value
+//' @param mat a matrix
+//' @return matrix of powers of x
+
 // [[Rcpp::depends(RcppArmadillo)]]
 
 #include <RcppArmadillo.h>
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-
 arma::mat alphpow(double x, arma::mat mat){
   // construct matrix of powers of x
   arma::mat alphpowmat = arma::exp(std::log(x) * mat);
   return(alphpowmat);
 }
 
+//' @name cmat
+//' @title obtain the matrix of within cluster correlation
+
+//' @param ctimes a numeric vector of time points
+//' @param alpha the association parameter
+//' @param corrmod a character string specifying the working correlation structure
+//' @param diffmeth a character string specifying the method used for estimation of alpha
+//' @param h a numeric value of finite differencing
+//' @return the matrix of within cluster correlation and its derivatives
 
 // [[Rcpp::export]]
-
 List cmat(Rcpp::NumericVector ctimes, double alpha, Rcpp::String corrmod, 
                    Rcpp::String diffmeth, double h){
     
@@ -148,7 +162,7 @@ List cmat(Rcpp::NumericVector ctimes, double alpha, Rcpp::String corrmod,
 
       }
 
-     } else if(corrmod == "uniform") {
+     } else if(corrmod == "exchangeable") {
       
      // construct icmat
      double lphi = std::log(alpha) - std::log(1 - alpha) - h;

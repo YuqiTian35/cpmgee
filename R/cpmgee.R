@@ -1,18 +1,105 @@
-# CPM GEE
+#' CPMs for clustered continuous response data based on GEE methods for ordinal data
+#'
+#' This function build the CPMs for clustered/longitudinal continuous response data
+#' based on GEE methods for ordinal data.
+#'
+#' @param formula an R formula object
+#' @param subjects a character string specifying the name of the subject variable
+#' @param data a data frame including response data and covariates
+#' @param times a vector of the maximum times within clusters
+#' @param categories a numeric value indicating the number of distinct values in response data
+#' @param corr.mod a character string specifying the working correlation structure
+#'  ("independence", "exchangeable", and "ar1")
+#' @param alpha an initial value for the association parameter
+#' @param po.test a logical variable; if true a score test for proportional odds is reported
+#' @param fixed a logical variable; if true the association parameter is fixed at the
+#' initial value during model fitting
+#' @param poly a numeric variable indicating the order of the polynomial contrasts used for
+#' the cut-point model
+#' @param space a vector indicating the category spacing when fitting the polynomial model; c
+#' an generally be set to 1:`categories`
+#' @param fit.opt a vector of options to control the behavior of the fitting algorithm
+#' @return A list containing the following components:
+#' @return \item{max.id}{number of clusters}
+#' @return \item{fitted.values}{a vector of the fitted values}
+#' @return \item{linear.predictors}{a vector of linear predictors}
+#' @return \item{coefficients}{a vector of interecept and regression parameters}
+#' @return \item{robust.var}{the robust (sandwich) variance matrix}
+#' @return \item{alpha}{an estimate of the association parameter}
+#' @return \item{grad1}{the	first derivative of generalized variance}
+#' @return \item{grad2}{the	second derivative of generalized variance}
+#' @export
+#'
+#' @details We propose two feasible and computationally efficient approaches to
+#' fit CPMs for clustered continuous response variables with different working correlation structures
+#' (independence, exchangeable and AR1 working correlation structures).
+#'
+#' CPMs with independence working correlation can be efficiently fit to clustered continuous responses
+#' with thousands of distinct values based on CPMs and sandwich estimator for variances.
+#'
+#' To improve efficiency, CPMs with more complex working correlation structures (exchangeable and AR1)
+#' can be fit with a one-step GEE estimator for repolr (repeated measures proportional odds logistic regression
+#' proposed by Parsons). The number of distinct respones values can be further reduced by
+#' equal-quantile binning or rounding.
+#'
+#' Estimates of the mean, quantiles, and exceedance probabilities onditional on covariates (new data)
+#' can be derived from the model fit.
+#'
+#' @seealso \code{\link{cdf_cpmgee}, \link{quantile_cpmgee}, \link{mean_cpmgee}}
+#'
+#'
+#' @references
+#' Tian et al. "Analyzing clustered continuous response variables with ordinal
+#'  regression models." (2022) (to be submitted)
+#' @references
+#' Parsons, N. (2017). repolr: an R package for fitting proportional-odds models to repeated
+#' ordinal scores. R package version 3.4 https://CRAN.R-project.org/package=repolr
+#' @references
+#' Harrell, F. (2020). rms: Regression modeling strategies. R package version 6.1.0. https://CRAN.R-project.org/package=rms
+#'
+#' @import Matrix
+#' @import rms
+#' @import diagonals
+#' @importFrom Rcpp evalCpp
+#' @importFrom methods as
+#' @importFrom stats as.formula coef dnorm model.matrix qnorm terms terms.formula
+#' @useDynLib cpmgee, .registration=TRUE
+#' @exportPattern "^[[:alpha:]]+"
+#'
+#' @examples
+#' data(data)
+#'
+#' # independence working correlation structure
+#' mod_cpmgee_ind <- cpmgee(formula = y ~ x + t, data = data, categories = length(unique(data$y)),
+#' subjects = 'id', times = 1:6, corr.mod = 'independence', alpha = 0.5)
+#'
+#' # exchangeable working correlation structure
+#' mod_cpmgee_ex <- cpmgee(formula = y ~ x + t, data = data, categories = length(unique(data$y)),
+#' subjects = 'id', times = 1:6, corr.mod = 'exchangeable', alpha = 0.5)
+#'
+#' # new data
+#' new_data <- data.frame(x = c(0,1), t = 0.2)
+#' 
+#' # conditional quantities for independence working correlation structure
+#' mean_ind <- mean_cpmgee(mod_cpmgee_ind, data$y, new_data)
+#' median_ind <- quantile_cpmgee(mod_cpmgee_ind, data$y, new_data, 0.5)
+#' cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y, new_data, 5)
+#' 
+#' # conditional quantities for exchangeable working correlation structure
+#' mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y, new_data)
+#' median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
+#' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
 
-cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "independence", 
+cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "independence",
                               alpha = 0.5, po.test = FALSE, fixed = FALSE, poly = NULL, space = NULL, fit.opt = rep(NA, 5)){
   # start
   call <- match.call()
-  
+
   # set-up
-  corr.mods <- c("ar1", "uniform", "independence")
+  corr.mods <- c("ar1", "exchangeable", "independence")
   icorr.mod <- as.integer(match(corr.mod, corr.mods, -1))
-  if (icorr.mod < 1){stop("corr.mod: set to be independence, ar1 or uniform")}
+  if (icorr.mod < 1){stop("corr.mod: set to be independence, ar1 or exchangeable")}
   rcorr.mod <- corr.mod
-  # diffmeths <- c("analytic", "numeric")
-  # idiffmeth <- as.integer(match(diffmeth, diffmeths, -1))
-  # if (idiffmeth < 1){stop("diffmeth: set to be numeric or analytic")}
   diffmeth <- 'analytic'
   initial <- 'orm'
   if(times[1] != 1){stop("times: times should be vector with first value set to 1")}
@@ -29,14 +116,11 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   isubject <- as.integer(match(subjects, names(as.data.frame(data)), -1))
   if (isubject < 1){stop("subjects: unknown subject name")}
   orig.formula <- as.formula(formula)
-  # if(corr.mod == "independence" | length(times) == 1){alpha <- 0;   fixed <- TRUE;   corr.mod <- "uniform"}
-  # if(length(times) == 1){diffmeth <- "analytic"}
-  # if(is.null(poly) == FALSE){po.test <- FALSE; poly <- as.integer(poly);  initial = "glm"}
   if(is.null(poly) == FALSE){po.test <- FALSE; poly <- as.integer(poly)}
   if(sum(diff(times) > 0) != (length(times) - 1)){stop("times: invalid vector of times")}
   if(is.null(space) != TRUE){if(sum(diff(space) > 0) != categories1){stop("space: invalid vector of spacings")}}
   if(is.null(space) != TRUE){if(space[1] != 1){stop("space: space should be vector with first value set to 1")}}
-  
+
   # convert id to numeric
   data$subjects.ord <- as.numeric(factor(data[,subjects], levels = unique(data[,subjects])))
   data <- data[order(data$subjects.ord),]
@@ -57,7 +141,6 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                        data = data, subjects = 'subjects.ord', categories = categories)
   formula <- exdata$formula
   dat <- list(data = exdata$data)
-  # Xmat <- list(design = Matrix::Matrix(model.matrix(formula, data = exdata$data), sparse = TRUE)) 
   covariate_part <- model.matrix(formula.ord, data = exdata$data)[,-1]
   covariate_names <- colnames(covariate_part)
   intercept_names <- paste0('cuts', exdata$data$cuts[1:categories1])
@@ -66,7 +149,6 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
     i_poly <- poly(exdata$data$pcuts, poly)
     poly_names <- paste0('poly(pcuts, ', poly, ')', 1:poly)
     Xmat <- list(design = as(cbind(1, i_poly, covariate_part), 'dgCMatrix'))
-    # var.names <- c('(Intercept)', poly_names, covariate_names)
   }else{
     i_intercept <- Matrix::Diagonal(categories1)
     intercept_names <- paste0('cuts', exdata$data$cuts[1:categories1])
@@ -76,19 +158,19 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
     Xmat <- list(design = cbind(intercept_part, covariate_part))
   }
   var.names <- c(intercept_names, covariate_names)
-  
-  
+
+
   mod <- rms::orm(formula = formula.ord, data = data, x = TRUE, y = TRUE) # default logit link
   inv.logit <- function(x) 1 / (1 + exp(-x))
-  
-  # independence working correlation 
+
+  # independence working correlation
   if(corr.mod == 'independence' | length(times) == 1){
     mod_robust <- rms::robcov(fit = mod, cluster = data[,subjects])
     coeffs <- -mod_robust$coefficients
     robust.var <- mod_robust$var
     rownames(robust.var) <- colnames(robust.var) <- var.names
     names(coeffs) <- var.names
-    
+
     return(list(
       title = "CPM GEE",
       call = call,
@@ -96,7 +178,7 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
       subjects = subjects,
       formula = mod_robust$sformula,
       orig.formula = mod_robust$sformula,
-      corr.mod <- 'independence',
+      corr.mod = 'independence',
       times = times,
       categories = categories,
       id = data[,subjects],
@@ -108,7 +190,7 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
       robust.var = robust.var
     ))
   }
-  
+
   mod[['coefficients']] <- -mod[['coefficients']]
   mod[['linear.predictors']] <- as.vector(Xmat$design %*% mod[['coefficients']])
   mod[['fitted.values']] <- inv.logit(mod$linear.predictors)
@@ -118,12 +200,12 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
 
   # 2. update alpha
   xhgmat <- hgmat(mod = mod, smat = xsmat, X = Xmat,
-                  modtype = "glm", diffmeth = diffmeth, alpha = alpha, 
+                  modtype = "glm", diffmeth = diffmeth, alpha = alpha,
                   corrmod = corr.mod, h = set.fit.opt[5])
-  
+
   xupalpha <- upalpha(hgmat = xhgmat, alpha = alpha, diffmeth = diffmeth, h = set.fit.opt[5])
   alpha <- xupalpha$alpha
-  
+
   # 3. update beta
   xicormat <- list(irmat = icormat(mod=mod, smat=xsmat, modtype='glm', diffmeth = diffmeth,
                                    alpha=alpha, corrmod = corr.mod, h = set.fit.opt[5]))
@@ -132,6 +214,9 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                           omaxit = as.integer(set.fit.opt[2]), otol = as.double(set.fit.opt[4]))
   coeffs <- mod.ordgee$coefficients
   if(is.null(poly) == FALSE){
+    poly1 <- poly + 1
+    var.names[1:poly1] <- c("Intercept", paste("poly(cuts, ",categories - 1, ")", 1:poly, sep = ""))
+    polydesign <- as(Xmat$design[1:(categories1), 1:(poly1)], "CsparseMatrix")
     polycuts <- as.numeric(polydesign %*% coeffs[1:(poly1)])
     coeffs <- c(polycuts, mod.ordgee$coefficients[(poly1+1):length(mod.ordgee$coefficients)])
     xsmat <- smat(coeff=polycuts)
@@ -153,36 +238,36 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
       coeffs <- mod.ordgee$coefficients
     }
   }
-  
+
   xsmat <- smat(coeff = mod.ordgee$coefficients[1:categories1])
-  
+
   # covariance matrices
-  xhgmat <- hgmat_cov(mod = mod.ordgee, smat = xsmat, 
-                      X = Xmat, modtype = "gee", diffmeth = diffmeth, 
+  xhgmat <- hgmat_cov(mod = mod.ordgee, smat = xsmat,
+                      X = Xmat, modtype = "gee", diffmeth = diffmeth,
                       alpha = alpha, corrmod = corr.mod, h = set.fit.opt[5])
-  inv_hmat <- Matrix::solve(xhgmat$hmat) 
+  inv_hmat <- Matrix::solve(xhgmat$hmat)
   robust.var <- inv_hmat %*% xhgmat$gmat %*% inv_hmat
   if(is.null(poly) == FALSE){
     poly_robust.var <- robust.var
     polycuts.robust_int <- polydesign %*% robust.var[1:(poly1), 1:(poly1)] %*% Matrix::t(polydesign)
-    polycuts.robust_cov <- robust.var[(poly1+1):nrow(robust.var), (poly1+1):nrow(robust.var)] 
+    polycuts.robust_cov <- robust.var[(poly1+1):nrow(robust.var), (poly1+1):nrow(robust.var)]
     polycuts.robust_intcov <- polydesign %*% robust.var[1:(poly1), (poly1+1):nrow(robust.var)]
     robust.var <- as.matrix(rbind(cbind(polycuts.robust_int, polycuts.robust_intcov),
                                   cbind(t(polycuts.robust_intcov), polycuts.robust_cov)))
   } else{
-    inv_hmat <- Matrix::solve(xhgmat$hmat) 
+    inv_hmat <- Matrix::solve(xhgmat$hmat)
     robust.var <- inv_hmat %*% xhgmat$gmat %*% inv_hmat
     polycuts <- poly_robust.var <- NA
   }
   rownames(robust.var) <- colnames(robust.var) <- var.names
   coeffs <- as.numeric(coeffs); names(coeffs) <- var.names
-  
+
   # output
   cpmgee.mod <- list(title = "CPM GEE",
                      call = call,
                      data = call[["data"]],
                      subjects = subjects,
-                     formula = formula, 
+                     formula = formula,
                      orig.formula = orig.formula,
                      corr.mod = rcorr.mod,
                      times = times,

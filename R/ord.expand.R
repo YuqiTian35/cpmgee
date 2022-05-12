@@ -1,3 +1,15 @@
+#' Expand data for model fitting 
+#' 
+#' This function expand each response value into indicator for model fitting
+#' 
+#' @param space a vector indicating the category spacing when fitting the polynomial model
+#' @param formula an R formula
+#' @param times a vector of times which occur within subject clusters
+#' @param poly a numeric variable indicating the order of the polynomial contrasts used for the cut-point model
+#' @param data a data frame including response data and covariates
+#' @param subjects a character string specifying the subject variable
+#' @param categories a numeric variable indicating the number of ordinal levels
+#' @return an expanded data frame
 ord.expand <- function(space, formula, times, poly, data, subjects, categories){
 
   # remove missing data
