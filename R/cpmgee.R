@@ -1,16 +1,14 @@
 #' CPMs for clustered continuous response data based on GEE methods for ordinal data
 #'
-#' This function build the CPMs for clustered/longitudinal continuous response data
+#' This function function fits cumulative probability models (CPMs) clustered/longitudinal continuous response data
 #' based on GEE methods for ordinal data.
 #'
 #' @param formula an R formula object
 #' @param subjects a character string specifying the name of the subject variable
 #' @param data a data frame including response data and covariates
-#' @param times a vector of the maximum times within clusters
-#' @param categories a numeric value indicating the number of distinct values in response data
 #' @param corr.mod a character string specifying the working correlation structure
 #'  ("independence", "exchangeable", and "ar1")
-#' @param alpha an initial value for the association parameter
+#' @param alpha an initial value for the association parameter in the range of 0.05 to 0.95.
 #' @param fit.opt a vector of options to control the behavior of the fitting algorithm
 #' @return A list containing the following components:
 #' @return \item{max.id}{number of clusters}
@@ -18,12 +16,14 @@
 #' @return \item{linear.predictors}{a vector of linear predictors}
 #' @return \item{coefficients}{a vector of interecept and regression parameters}
 #' @return \item{robust.var}{the robust (sandwich) variance matrix}
-#' @return \item{alpha}{an estimate of the association parameter}
-#' @return \item{grad1}{the	first derivative of generalized variance}
-#' @return \item{grad2}{the	second derivative of generalized variance}
+#' @return \item{alpha}{the estimate of the association parameter}
 #' @export
 #'
-#' @details We propose two feasible and computationally efficient approaches to
+#' @details CPMs are useful for the analysis of continuous response data which may need to be transformed 
+#' prior to fitting standard regression models. CPMs are semi-parametric linear transformation models; 
+#' they nonparametrically estimate the appropriate transformation as part of the fitting procedure.
+#'
+#' We propose two feasible and computationally efficient approaches to
 #' fit CPMs for clustered continuous response variables with different working correlation structures
 #' (independence, exchangeable and AR1 working correlation structures).
 #'
@@ -32,10 +32,10 @@
 #'
 #' To improve efficiency, CPMs with more complex working correlation structures (exchangeable and AR1)
 #' can be fit with a one-step GEE estimator for repolr (repeated measures proportional odds logistic regression
-#' proposed by Parsons). The number of distinct respones values can be further reduced by
+#' proposed by Parsons). The number of distinct response values can be further reduced by
 #' equal-quantile binning or rounding.
 #'
-#' Estimates of the mean, quantiles, and exceedance probabilities onditional on covariates (new data)
+#' Estimates of the mean, quantiles, and exceedance probabilities conditional on covariates (new data)
 #' can be derived from the model fit.
 #'
 #' @seealso \code{\link{cdf_cpmgee}, \link{quantile_cpmgee}, \link{mean_cpmgee}}
@@ -49,6 +49,10 @@
 #' ordinal scores. R package version 3.4 https://CRAN.R-project.org/package=repolr
 #' @references
 #' Harrell, F. (2020). rms: Regression modeling strategies. R package version 6.1.0. https://CRAN.R-project.org/package=rms
+#' @references
+#' Liu, Q., Shepherd, B. E., Li, C., & Harrell Jr, F. E. (2017). Modeling continuous response variables using ordinal regression. 
+#' Statistics in Medicine, 36(27), 4316-4335.
+#'
 #'
 #' @import Matrix
 #' @import rms
@@ -63,12 +67,12 @@
 #' data(data)
 #'
 #' # independence working correlation structure
-#' mod_cpmgee_ind <- cpmgee(formula = y ~ x + t, data = data, categories = length(unique(data$y)),
-#' subjects = 'id', times = 1:6, corr.mod = 'independence', alpha = 0.5)
+#' mod_cpmgee_ind <- cpmgee(formula = y ~ x + t, data = data, 
+#' subjects = 'id', corr.mod = 'independence')
 #'
 #' # exchangeable working correlation structure
-#' mod_cpmgee_ex <- cpmgee(formula = y ~ x + t, data = data, categories = length(unique(data$y)),
-#' subjects = 'id', times = 1:6, corr.mod = 'exchangeable', alpha = 0.5)
+#' mod_cpmgee_ex <- cpmgee(formula = y ~ x + t, data = data,
+#' subjects = 'id', corr.mod = 'exchangeable', alpha = 0.5)
 #'
 #' # new data
 #' new_data <- data.frame(x = c(0,1), t = 0.2)
@@ -81,10 +85,10 @@
 #' # conditional quantities for exchangeable working correlation structure
 #' mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y, new_data)
 #' median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
-#' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
+#' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 5)
 
-cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "independence",
-                              alpha = 0.5, fit.opt = rep(NA, 5)){
+cpmgee <- function(formula, subjects, data, corr.mod = "independence",
+                   alpha = 0.5, fit.opt = rep(NA, 5)){
   # start
   call <- match.call()
 
@@ -95,23 +99,23 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   rcorr.mod <- corr.mod
   diffmeth <- 'analytic'
   initial <- 'orm'
-  if(times[1] != 1){stop("times: times should be vector with first value set to 1")}
   alpha <- as.double(alpha)
   set.fit.opt <- c(cmaxit = 10, omaxit = 5, ctol = 0.001, otol = 0.00001, h = 0.01)
   set.fit.opt[which(is.na(fit.opt) == FALSE)] <- fit.opt[which(is.na(fit.opt) == FALSE)]
   if(set.fit.opt[1] < 4){set.fit.opt[1] <- 4}
   if(alpha < 0.05 | alpha > 0.95){stop("alpha: invalid correlation parameter")}
-  categories <- as.integer(categories)
-  categories1 <- categories - 1
   subjects <- as.character(subjects)
   isubject <- as.integer(match(subjects, names(as.data.frame(data)), -1))
   if (isubject < 1){stop("subjects: unknown subject name")}
   orig.formula <- as.formula(formula)
-  if(sum(diff(times) > 0) != (length(times) - 1)){stop("times: invalid vector of times")}
-
+  
   # convert id to numeric
   data$subjects.ord <- as.numeric(factor(data[,subjects], levels = unique(data[,subjects])))
   data <- data[order(data$subjects.ord),]
+  
+  # max cluster size
+  times <- seq(1, max(table(data$subjects.ord)))
+  
   # convert response to ordinal variable
   y <- data[,all.vars(formula)[1]]
   if(is.factor(y)){
@@ -124,6 +128,10 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
   data$y.ord <- y.ord
   formula.ord <- as.formula(paste('y.ord', '~', paste(all.vars(formula)[-1], collapse = ' + ')))
 
+  # categories 
+  categories <- max(y.ord)
+  categories1 <- categories - 1
+  
   # model matrix
   exdata <- ord.expand(formula = formula.ord, times = times,
                        data = data, subjects = 'subjects.ord', categories = categories)
@@ -246,7 +254,5 @@ cpmgee <- function(formula, subjects, data, times, categories, corr.mod = "indep
                      coefficients = coeffs,
                      robust.var = as.matrix(robust.var),
                      alpha = as.numeric(alpha),
-                     fit.opt = set.fit.opt,
-                     grad1 = as.numeric(xupalpha$gvb),
-                     grad2 = as.numeric(xupalpha$ggvb))
+                     fit.opt = set.fit.opt)
 }

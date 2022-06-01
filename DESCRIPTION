@@ -10,5 +10,5 @@ License: GPL (>= 2)
 Depends: R (>= 3.4.0)
 Imports: Rcpp (>= 1.0.4), methods, stats, Matrix, rms, diagonals
 LinkingTo: Rcpp, RcppArmadillo, RcppEigen
-RoxygenNote: 7.1.2
 Encoding: UTF-8
+RoxygenNote: 7.1.2
