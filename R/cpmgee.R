@@ -12,8 +12,8 @@
 #' @param fit.opt a vector of options to control the behavior of the fitting algorithm
 #' @return A list containing the following components:
 #' @return \item{max.id}{number of clusters}
-#' @return \item{fitted.values}{a vector of the fitted values}
 #' @return \item{linear.predictors}{a vector of linear predictors}
+#' @return \item{fitted.values}{a vector of the fitted values (linear prectors after inverse link function tranformation)}
 #' @return \item{coefficients}{a vector of interecept and regression parameters}
 #' @return \item{robust.var}{the robust (sandwich) variance matrix}
 #' @return \item{alpha}{the estimate of the association parameter}
@@ -71,7 +71,8 @@
 #' subjects = 'id', corr.mod = 'independence')
 #'
 #' # exchangeable working correlation structure
-#' mod_cpmgee_ex <- cpmgee(formula = y ~ x + t, data = data,
+#' # (we use binned response data here for computational efficiency)
+#' mod_cpmgee_ex <- cpmgee(formula = y_bin50 ~ x + t, data = data,
 #' subjects = 'id', corr.mod = 'exchangeable', alpha = 0.5)
 #'
 #' # new data
@@ -80,12 +81,12 @@
 #' # conditional quantities for independence working correlation structure
 #' mean_ind <- mean_cpmgee(mod_cpmgee_ind, data$y, new_data)
 #' median_ind <- quantile_cpmgee(mod_cpmgee_ind, data$y, new_data, 0.5)
-#' cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y, new_data, 5)
+#' cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y, new_data, 3)
 #'
 #' # conditional quantities for exchangeable working correlation structure
-#' mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y, new_data)
-#' median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
-#' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 5)
+#' mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y_bin50, new_data)
+#' median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y_bin50, new_data, 0.5)
+#' cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y_bin50, new_data, 3)
 
 cpmgee <- function(formula, subjects, data, corr.mod = "independence",
                    alpha = 0.5, fit.opt = rep(NA, 5)){
@@ -156,6 +157,7 @@ cpmgee <- function(formula, subjects, data, corr.mod = "independence",
   if(corr.mod == 'independence' | length(times) == 1){
     mod_robust <- rms::robcov(fit = mod, cluster = data[,subjects])
     coeffs <- -mod_robust$coefficients
+    coeffs[categories:length(coeffs)] <- -coeffs[categories:length(coeffs)] 
     robust.var <- mod_robust$var
     rownames(robust.var) <- colnames(robust.var) <- var.names
     names(coeffs) <- var.names
@@ -235,6 +237,7 @@ cpmgee <- function(formula, subjects, data, corr.mod = "independence",
 
   rownames(robust.var) <- colnames(robust.var) <- var.names
   coeffs <- as.numeric(coeffs); names(coeffs) <- var.names
+  coeffs[categories:length(coeffs)] <- -coeffs[categories:length(coeffs)]
 
   # output
   cpmgee.mod <- list(title = "CPM GEE",

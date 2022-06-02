@@ -35,8 +35,8 @@ cdf_cpmgee <- function(mod, cont_y, new.data, at.y=0, se=TRUE){
   m.alpha <-  coef[index]
   m.alpha <- ifelse(is.infinite(index), index, m.alpha)
   if(length(at.y)==1){
-    lb <- as.matrix(outer(m.alpha, xb, "+")[,,1])
-  } else lb <- t(outer(m.alpha, xb, "+")[,,1])
+    lb <- as.matrix(outer(m.alpha, xb, "-")[,,1])
+  } else lb <- t(outer(m.alpha, xb, "-")[,,1])
   m.cdf <- cumprob(lb)
   
   
@@ -111,7 +111,7 @@ quantile_cpmgee <- function(mod, cont_y, new.data, probs=0.5, se=TRUE){
   quantile <- matrix(NA, nrow=dim(new.data)[1], ncol=length(probs))
   xb <- as.matrix(new.data) %*% beta
   m.alpha <- alpha
-  lb <- t(outer(m.alpha, xb, "+")[,,1])
+  lb <- t(outer(m.alpha, xb, "-")[,,1])
   
   m.cdf <- cumprob(lb)
   m.cdf <- cbind(0, m.cdf, 1)
@@ -295,7 +295,7 @@ mean_cpmgee <- function(mod, cont_y, new.data, se=TRUE){
   n.alpha <- length(order.y) - 1
   xb <- as.matrix(new.data) %*% beta
   m.alpha <- alpha
-  lb <- t(outer(m.alpha, xb, "+")[,,1])
+  lb <- t(outer(m.alpha, xb, "-")[,,1])
   m.s <- cumprob(lb)
   m.f <- t(apply(m.s, 1, FUN=function(x) c(x[1:n.alpha], 1) - c(0, x[1:n.alpha])))
   m.mean <- apply(m.f, 1, FUN=function(x) sum(x*order.y))
