@@ -68,9 +68,11 @@ can be derived from the model fit.
 }
 \examples{
 data(data)
+# y_continuous: continuous outcome
+# y: continuous outcome binned to 50 categories
 
 # independence working correlation structure
-mod_cpmgee_ind <- cpmgee(formula = y ~ x + t, data = data, 
+mod_cpmgee_ind <- cpmgee(formula = y_continuous ~ x + t, data = data, 
 subjects = 'id', corr.mod = 'independence')
 
 # exchangeable working correlation structure
@@ -81,9 +83,9 @@ subjects = 'id', corr.mod = 'exchangeable', alpha = 0.5)
 new_data <- data.frame(x = c(0,1), t = 0.2)
 
 # conditional quantities for independence working correlation structure
-mean_ind <- mean_cpmgee(mod_cpmgee_ind, data$y, new_data)
-median_ind <- quantile_cpmgee(mod_cpmgee_ind, data$y, new_data, 0.5)
-cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y, new_data, 5)
+mean_ind <- mean_cpmgee(mod_cpmgee_ind, data$y_continuous, new_data)
+median_ind <- quantile_cpmgee(mod_cpmgee_ind, data$y_continuous, new_data, 0.5)
+cdf_ind <- cdf_cpmgee(mod_cpmgee_ind, data$y_continuous, new_data, 5)
 
 # conditional quantities for exchangeable working correlation structure
 mean_ex <- mean_cpmgee(mod_cpmgee_ex, data$y, new_data)
@@ -91,8 +93,8 @@ median_ex <- quantile_cpmgee(mod_cpmgee_ex, data$y, new_data, 0.5)
 cdf_ex <- cdf_cpmgee(mod_cpmgee_ex, data$y, new_data, 5)
 }
 \references{
-Tian et al. "Analyzing clustered continuous response variables with ordinal
- regression models." (2022) (to be submitted)
+Tian et al. (2023) "Analyzing clustered continuous response variables with ordinal
+ regression models." Biometrics.
 
 Parsons, N. (2017). repolr: an R package for fitting proportional-odds models to repeated
 ordinal scores. R package version 3.4 https://CRAN.R-project.org/package=repolr
